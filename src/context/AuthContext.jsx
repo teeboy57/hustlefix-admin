@@ -44,6 +44,11 @@ export function AuthProvider({ children }) {
         // Android app stores profiles under /users/{uid} in Realtime Database.
         const snapshot = await get(ref(db, `users/${user.uid}`))
         const userProfile = snapshot.exists() ? snapshot.val() : null
+        const isSuspendedAccount = !!userProfile && (
+          userProfile.isSuspended === true ||
+          userProfile.suspended === true ||
+          userProfile.status === 'suspended'
+        )
 
         if (!userProfile || userProfile.role !== 'admin') {
           // Not an admin — reject the session immediately.
@@ -51,6 +56,15 @@ export function AuthProvider({ children }) {
           setFirebaseUser(null)
           setProfile(null)
           setAuthError('This account does not have admin access.')
+          setLoading(false)
+          return
+        }
+
+        if (isSuspendedAccount) {
+          await signOut(auth)
+          setFirebaseUser(null)
+          setProfile(null)
+          setAuthError('This account has been suspended. Contact support.')
           setLoading(false)
           return
         }
@@ -83,7 +97,29 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const result = await signInWithEmailAndPassword(auth, email, password)
+      const snapshot = await get(ref(db, `users/${result.user.uid}`))
+      const userProfile = snapshot.exists() ? snapshot.val() : null
+      const isSuspendedAccount = !!userProfile && (
+        userProfile.isSuspended === true ||
+        userProfile.suspended === true ||
+        userProfile.status === 'suspended'
+      )
+
+      if (!userProfile || userProfile.role !== 'admin') {
+        await signOut(auth)
+        const message = 'This account does not have admin access.'
+        setAuthError(message)
+        return { success: false, error: message }
+      }
+
+      if (isSuspendedAccount) {
+        await signOut(auth)
+        const message = 'This account has been suspended. Contact support.'
+        setAuthError(message)
+        return { success: false, error: message }
+      }
+
       return { success: true }
     } catch (err) {
       const message = mapAuthError(err.code)
