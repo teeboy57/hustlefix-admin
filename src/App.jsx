@@ -1,0 +1,34 @@
+import React from 'react'
+import { Routes, Route } from 'react-router-dom'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import DashboardLayout from '@/layouts/DashboardLayout'
+import Login from '@/pages/Login'
+import Overview from '@/pages/Overview'
+import UserManagement from '@/pages/UserManagement'
+import JobOversight from '@/pages/JobOversight'
+import EmergencyHub from '@/pages/EmergencyHub'
+import TransactionLog from '@/pages/TransactionLog'
+import ActivityLog from '@/pages/ActivityLog'
+import Reports from '@/pages/Reports'
+import NotFound from '@/pages/NotFound'
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<DashboardLayout />}>
+          <Route index element={<Overview />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="jobs" element={<JobOversight />} />
+          <Route path="emergency" element={<EmergencyHub />} />
+          <Route path="transactions" element={<TransactionLog />} />
+          <Route path="activity" element={<ActivityLog />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Route>
+    </Routes>
+  )
+}

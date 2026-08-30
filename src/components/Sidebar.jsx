@@ -1,0 +1,101 @@
+import React from 'react'
+import { NavLink } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import {
+  LayoutDashboard, Users, Briefcase, Siren, Receipt, Activity, BarChart3, Wrench, X,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useEmergencyCount } from '@/hooks/useEmergencyCount'
+
+const navItems = [
+  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/users', label: 'User Management', icon: Users },
+  { to: '/jobs', label: 'Job Oversight', icon: Briefcase },
+  { to: '/emergency', label: 'Emergency Hub', icon: Siren, emergency: true },
+  { to: '/transactions', label: 'Transaction Log', icon: Receipt },
+  { to: '/activity', label: 'Activity Log', icon: Activity },
+  { to: '/reports', label: 'Reports', icon: BarChart3 },
+]
+
+export default function Sidebar({ open, onClose }) {
+  const emergencyCount = useEmergencyCount()
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-white/90 shadow-[8px_0_30px_rgba(15,23,42,0.06)] backdrop-blur-md transition-transform duration-200 lg:static lg:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="flex h-16 items-center justify-between border-b border-border/80 px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-500 text-primary-foreground shadow-lg shadow-indigo-500/20">
+              <Wrench size={14} />
+            </div>
+            <div>
+              <span className="block text-sm font-semibold tracking-tight text-foreground">HustleFix</span>
+              <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Admin</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground lg:hidden">
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  'group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  isActive
+                    ? 'bg-primary/8 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.div
+                      layoutId="sidebar-active-pill"
+                      className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/8 to-indigo-500/5"
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                    />
+                  )}
+                  <item.icon size={16} className="relative shrink-0" />
+                  <span className="relative">{item.label}</span>
+                  {item.emergency && emergencyCount > 0 && (
+                    <span className="relative ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground shadow-sm">
+                      {emergencyCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="border-t border-border/80 p-4">
+          <div className="rounded-xl bg-gradient-to-r from-slate-900 to-indigo-900 px-3 py-2.5 text-white shadow-lg shadow-indigo-900/15">
+            <p className="text-xs font-medium">HustleFix Admin</p>
+            <p className="mt-0.5 text-[11px] text-slate-200">v1.0.0 · ZA region</p>
+          </div>
+        </div>
+      </aside>
+    </>
+  )
+}
