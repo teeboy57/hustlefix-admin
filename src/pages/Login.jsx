@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Wrench, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { Wrench, Loader2, AlertCircle, Eye, EyeOff, MessageSquareText } from 'lucide-react'
+import { ref, push, set } from 'firebase/database'
+import { db } from '@/firebase/firebaseConfig'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +38,52 @@ export default function Login() {
       navigate('/', { replace: true })
     }
   }
+
+  const handleOpenSupportChat = async () => {
+    try {
+      const userIdentifier = email.trim() || 'suspended-user'
+      const userId = (window?.crypto?.randomUUID?.() || `suspended-${Date.now()}`)
+      const chatId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const payload = {
+        id: chatId,
+        userId,
+        userEmail: userIdentifier,
+        userDisplayName: userIdentifier,
+        participantIds: ['support-admin', userId],
+        participants: ['Support Admin', userIdentifier],
+        type: 'suspension_support',
+        status: 'open',
+        subject: 'Account suspension support',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastMessage: 'Hello Admin, my account has been suspended and I need help.',
+        messages: [
+          {
+            id: `${Date.now()}-system`,
+            sender: 'user',
+            senderName: userIdentifier,
+            text: 'Hello Admin, my account has been suspended and I need help.',
+            createdAt: Date.now(),
+          },
+        ],
+      }
+
+      const supportChatRef = ref(db, `support_chats/${chatId}`)
+      const adminChatRef = ref(db, `admin_chats/${chatId}`)
+      await set(supportChatRef, payload)
+      await set(adminChatRef, {
+        ...payload,
+        visibility: 'admin_only',
+      })
+
+      setError('A support chat has been created for our admin team. Please keep this page open and wait for a reply.')
+    } catch (err) {
+      console.error('Failed to create suspension support chat:', err)
+      setError('We could not open a chat right now. Please contact support manually.')
+    }
+  }
+
+  const isSuspensionNotice = displayError === 'This account has been suspended. Contact support.'
 
   return (
     <div className="grid min-h-screen w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-2">
@@ -152,6 +200,26 @@ export default function Login() {
                 <AlertCircle size={15} className="mt-0.5 shrink-0" />
                 <span>{displayError}</span>
               </motion.div>
+            )}
+
+            {isSuspensionNotice && (
+              <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-foreground">
+                <div>
+                  <p className="font-semibold text-foreground">Your account has been suspended</p>
+                  <p className="mt-1 text-muted-foreground">
+                    Your access has been temporarily paused. Please review the reason with our admin team or continue after you are ready.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" variant="outline" onClick={() => setError(null)} className="flex-1">
+                    OK
+                  </Button>
+                  <Button type="button" onClick={handleOpenSupportChat} className="flex-1">
+                    <MessageSquareText size={15} className="mr-2" />
+                    Chat with our Admin
+                  </Button>
+                </div>
+              </div>
             )}
 
             {!isFirebaseConfigured && (

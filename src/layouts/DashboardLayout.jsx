@@ -12,6 +12,7 @@ const titles = {
   '/transactions': 'Transaction Log',
   '/activity': 'Activity Log',
   '/reports': 'Reports',
+  '/support-chat': 'Support Chat',
 }
 
 export default function DashboardLayout() {

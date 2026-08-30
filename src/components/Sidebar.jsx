@@ -2,7 +2,7 @@ import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  LayoutDashboard, Users, Briefcase, Siren, Receipt, Activity, BarChart3, Wrench, X,
+  LayoutDashboard, Users, Briefcase, Siren, Receipt, Activity, BarChart3, Wrench, X, MessageSquareText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEmergencyCount } from '@/hooks/useEmergencyCount'
@@ -15,6 +15,7 @@ const navItems = [
   { to: '/transactions', label: 'Transaction Log', icon: Receipt },
   { to: '/activity', label: 'Activity Log', icon: Activity },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/support-chat', label: 'Support Chat', icon: MessageSquareText },
 ]
 
 export default function Sidebar({ open, onClose }) {

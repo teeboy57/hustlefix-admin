@@ -121,7 +121,16 @@ export function AuthProvider({ children }) {
         await signOut(auth)
         const message = 'This account has been suspended. Contact support.'
         setAuthError(message)
-        return { success: false, error: message }
+        return {
+          success: false,
+          error: message,
+          isSuspended: true,
+          user: {
+            uid: result.user.uid,
+            email: result.user.email,
+            displayName: result.user.displayName,
+          },
+        }
       }
 
       return { success: true }

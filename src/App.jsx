@@ -10,6 +10,7 @@ import EmergencyHub from '@/pages/EmergencyHub'
 import TransactionLog from '@/pages/TransactionLog'
 import ActivityLog from '@/pages/ActivityLog'
 import Reports from '@/pages/Reports'
+import SupportChat from '@/pages/SupportChat'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="transactions" element={<TransactionLog />} />
           <Route path="activity" element={<ActivityLog />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="support-chat" element={<SupportChat />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>
