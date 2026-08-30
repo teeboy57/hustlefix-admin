@@ -5,6 +5,18 @@ import { auth, db, isFirebaseConfigured, firebaseConfigError } from '@/firebase/
 
 const AuthContext = createContext(null)
 
+const isSuspensionActive = (userProfile) => {
+  if (!userProfile) return false
+
+  const isSuspended = userProfile.isSuspended === true || userProfile.suspended === true || userProfile.status === 'suspended'
+  if (!isSuspended) return false
+
+  const expirationMs = Number(userProfile.suspensionUntil)
+  if (!Number.isFinite(expirationMs) || expirationMs <= 0) return true
+
+  return Date.now() < expirationMs
+}
+
 export function AuthProvider({ children }) {
   const [firebaseUser, setFirebaseUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -44,11 +56,7 @@ export function AuthProvider({ children }) {
         // Android app stores profiles under /users/{uid} in Realtime Database.
         const snapshot = await get(ref(db, `users/${user.uid}`))
         const userProfile = snapshot.exists() ? snapshot.val() : null
-        const isSuspendedAccount = !!userProfile && (
-          userProfile.isSuspended === true ||
-          userProfile.suspended === true ||
-          userProfile.status === 'suspended'
-        )
+        const isSuspendedAccount = isSuspensionActive(userProfile)
 
         if (!userProfile || userProfile.role !== 'admin') {
           // Not an admin — reject the session immediately.
@@ -100,11 +108,7 @@ export function AuthProvider({ children }) {
       const result = await signInWithEmailAndPassword(auth, email, password)
       const snapshot = await get(ref(db, `users/${result.user.uid}`))
       const userProfile = snapshot.exists() ? snapshot.val() : null
-      const isSuspendedAccount = !!userProfile && (
-        userProfile.isSuspended === true ||
-        userProfile.suspended === true ||
-        userProfile.status === 'suspended'
-      )
+      const isSuspendedAccount = isSuspensionActive(userProfile)
 
       if (!userProfile || userProfile.role !== 'admin') {
         await signOut(auth)

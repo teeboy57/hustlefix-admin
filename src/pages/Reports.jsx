@@ -9,7 +9,19 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate, formatZAR } from '@/lib/utils'
 
 const normalizeStatus = (value) => String(value || 'pending').trim().toLowerCase()
-const DEFAULT_SUSPENSION_MS = 7 * 24 * 60 * 60 * 1000
+const suspensionOptions = [
+  { label: '1 day', value: 1 },
+  { label: '3 days', value: 3 },
+  { label: '7 days', value: 7 },
+  { label: '30 days', value: 30 },
+  { label: 'Custom', value: 'custom' },
+]
+
+const getSuspensionMs = (days) => {
+  const parsed = Number(days)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 7 * 24 * 60 * 60 * 1000
+  return parsed * 24 * 60 * 60 * 1000
+}
 
 export default function Reports() {
   const [users, setUsers] = useState(null)
@@ -18,6 +30,9 @@ export default function Reports() {
   const [reports, setReports] = useState([])
   const [disputes, setDisputes] = useState({})
   const [actioningId, setActioningId] = useState(null)
+  const [selectedSuspensionDays, setSelectedSuspensionDays] = useState(7)
+  const [isCustomSuspension, setIsCustomSuspension] = useState(false)
+  const [customSuspensionDays, setCustomSuspensionDays] = useState(7)
 
   useEffect(() => {
     const unsubUsers = onValue(ref(db, 'users'), (snap) => setUsers(snap.val() || {}))
@@ -125,7 +140,8 @@ export default function Reports() {
 
     setActioningId(report.id)
     try {
-      const suspensionUntil = Date.now() + DEFAULT_SUSPENSION_MS
+      const effectiveDays = isCustomSuspension ? Number(customSuspensionDays) : Number(selectedSuspensionDays)
+      const suspensionUntil = Date.now() + getSuspensionMs(effectiveDays)
       await update(ref(db, `users/${report.reportedUserId}`), {
         isSuspended: true,
         suspensionUntil,
@@ -195,9 +211,39 @@ export default function Reports() {
           </p>
           <p className="text-xs text-muted-foreground">Operational summary, platform health, and reported users</p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportSummary} disabled={!metrics}>
-          <Download size={14} /> Export summary
-        </Button>
+<div className="flex items-center gap-2">
+            <select
+              value={isCustomSuspension ? 'custom' : selectedSuspensionDays}
+              onChange={(event) => {
+                const nextValue = event.target.value
+                if (nextValue === 'custom') {
+                  setIsCustomSuspension(true)
+                  return
+                }
+                setIsCustomSuspension(false)
+                setSelectedSuspensionDays(Number(nextValue))
+              }}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none"
+              aria-label="Suspension duration"
+            >
+              {suspensionOptions.map((option) => (
+                <option key={option.label} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            {isCustomSuspension && (
+              <input
+                type="number"
+                min="1"
+                value={customSuspensionDays}
+                onChange={(event) => setCustomSuspensionDays(Number(event.target.value) || 1)}
+                className="h-8 w-20 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none"
+                aria-label="Custom suspension days"
+              />
+            )}
+            <Button variant="outline" size="sm" onClick={exportSummary} disabled={!metrics}>
+              <Download size={14} /> Export summary
+            </Button>
+          </div>
       </div>
 
       {metrics === null ? (

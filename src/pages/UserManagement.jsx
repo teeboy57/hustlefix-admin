@@ -24,6 +24,30 @@ import { logAdminAction } from '@/lib/activity'
 import { useAuth } from '@/context/AuthContext'
 
 const roleFilters = ['all', 'client', 'worker', 'admin']
+const suspensionOptions = [
+  { label: '1 day', value: 1 },
+  { label: '3 days', value: 3 },
+  { label: '7 days', value: 7 },
+  { label: '30 days', value: 30 },
+  { label: 'Custom', value: 'custom' },
+]
+
+const getSuspensionMs = (days) => {
+  const parsed = Number(days)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 7 * 24 * 60 * 60 * 1000
+  return parsed * 24 * 60 * 60 * 1000
+}
+
+const isSuspensionActive = (user) => {
+  if (!user) return false
+  const isSuspended = user.isSuspended === true || user.suspended === true || user.status === 'suspended'
+  if (!isSuspended) return false
+
+  const expirationMs = Number(user.suspensionUntil)
+  if (!Number.isFinite(expirationMs) || expirationMs <= 0) return true
+
+  return Date.now() < expirationMs
+}
 
 const getJoinedTimestamp = (user) => {
   if (!user) return null
@@ -67,9 +91,13 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState('all')
   const [selectedIds, setSelectedIds] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
-  const [confirmAction, setConfirmAction] = useState(null) // { type, uid, name }
+  const [confirmAction, setConfirmAction] = useState(null) // { type, uid, name, durationDays, customDurationDays, isCustom }
   const [verificationReview, setVerificationReview] = useState({ rejectionReason: '', adminNotes: '' })
   const [actionError, setActionError] = useState(null)
+  const [suspensionDurationDays, setSuspensionDurationDays] = useState(7)
+  const [customSuspensionDays, setCustomSuspensionDays] = useState(7)
+  const [bulkSuspensionMode, setBulkSuspensionMode] = useState(7)
+  const [bulkCustomSuspensionDays, setBulkCustomSuspensionDays] = useState(7)
 
   useEffect(() => {
     const usersRef = ref(db, 'users')
@@ -130,9 +158,10 @@ export default function UserManagement() {
         const name = user.name || user.email || uid
 
         if (type === 'suspend') {
-          const suspensionUntil = Date.now() + (7 * 24 * 60 * 60 * 1000)
+          const durationDays = bulkSuspensionMode === 'custom' ? Number(bulkCustomSuspensionDays) : Number(bulkSuspensionMode)
+          const suspensionUntil = Date.now() + getSuspensionMs(durationDays)
           updates.push(update(ref(db, `users/${uid}`), { isSuspended: true, suspensionUntil }))
-          updates.push(logAdminAction({ type: 'user_suspended', message: `Bulk suspended user ${name}`, entityId: uid }))
+          updates.push(logAdminAction({ type: 'user_suspended', message: `Bulk suspended user ${name} for ${durationDays} day(s)`, entityId: uid }))
         } else if (type === 'unsuspend') {
           updates.push(update(ref(db, `users/${uid}`), { isSuspended: false, suspensionUntil: null }))
           updates.push(logAdminAction({ type: 'user_reinstated', message: `Bulk reinstated user ${name}`, entityId: uid }))
@@ -159,13 +188,14 @@ export default function UserManagement() {
 
   const runAction = async () => {
     if (!confirmAction) return
-    const { type, uid, name } = confirmAction
+    const { type, uid, name, durationDays, customDurationDays, isCustom } = confirmAction
+    const selectedSuspendDays = isCustom ? Number(customDurationDays || customSuspensionDays) : Number(durationDays || suspensionDurationDays)
     setActionError(null)
     try {
       if (type === 'suspend') {
-        const suspensionUntil = Date.now() + (7 * 24 * 60 * 60 * 1000)
+        const suspensionUntil = Date.now() + getSuspensionMs(selectedSuspendDays)
         await update(ref(db, `users/${uid}`), { isSuspended: true, suspensionUntil })
-        await logAdminAction({ type: 'user_suspended', message: `Suspended user ${name || uid}`, entityId: uid })
+        await logAdminAction({ type: 'user_suspended', message: `Suspended user ${name || uid} for ${selectedSuspendDays} day(s)`, entityId: uid })
       } else if (type === 'unsuspend') {
         await update(ref(db, `users/${uid}`), { isSuspended: false, suspensionUntil: null })
         await logAdminAction({ type: 'user_reinstated', message: `Reinstated user ${name || uid}`, entityId: uid })
@@ -237,6 +267,35 @@ export default function UserManagement() {
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
               <span className="text-xs font-medium text-muted-foreground">{selectedIds.length} selected</span>
+              <select
+                value={bulkSuspensionMode}
+                onChange={(e) => {
+                  const nextValue = e.target.value
+                  if (nextValue === 'custom') {
+                    setBulkSuspensionMode('custom')
+                    return
+                  }
+                  const numericValue = Number(nextValue)
+                  setBulkSuspensionMode(numericValue)
+                  setSuspensionDurationDays(numericValue)
+                }}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none"
+                aria-label="Bulk suspension duration"
+              >
+                {suspensionOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {bulkSuspensionMode === 'custom' && (
+                <input
+                  type="number"
+                  min="1"
+                  value={bulkCustomSuspensionDays}
+                  onChange={(e) => setBulkCustomSuspensionDays(Number(e.target.value) || 1)}
+                  className="h-8 w-20 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none"
+                  aria-label="Custom bulk suspension days"
+                />
+              )}
               <Button variant="outline" size="sm" onClick={() => executeBulkAction('suspend')}>
                 Suspend
               </Button>
@@ -336,7 +395,7 @@ export default function UserManagement() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {u.isSuspended ? (
+                    {isSuspensionActive(u) ? (
                       <Badge variant="destructive">Suspended</Badge>
                     ) : (
                       <Badge variant="success">Active</Badge>
@@ -384,7 +443,7 @@ export default function UserManagement() {
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
-                        {u.isSuspended ? (
+                        {isSuspensionActive(u) ? (
                           <DropdownMenuItem
                             onClick={() => setConfirmAction({ type: 'unsuspend', uid: u.uid, name: u.name })}
                           >
@@ -393,7 +452,14 @@ export default function UserManagement() {
                         ) : (
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
-                            onClick={() => setConfirmAction({ type: 'suspend', uid: u.uid, name: u.name })}
+                            onClick={() => setConfirmAction({
+                              type: 'suspend',
+                              uid: u.uid,
+                              name: u.name,
+                              durationDays: suspensionDurationDays,
+                              customDurationDays: customSuspensionDays,
+                              isCustom: false,
+                            })}
                           >
                             <Ban size={14} /> Suspend user
                           </DropdownMenuItem>
@@ -436,7 +502,7 @@ export default function UserManagement() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg border border-border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Status</p>
-                  <p className="mt-1 font-medium text-foreground">{selectedUser.isSuspended ? 'Suspended' : 'Active'}</p>
+                  <p className="mt-1 font-medium text-foreground">{isSuspensionActive(selectedUser) ? 'Suspended' : 'Active'}</p>
                 </div>
                 <div className="rounded-lg border border-border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Verification</p>
@@ -477,7 +543,7 @@ export default function UserManagement() {
                     setConfirmAction({ type: 'make_admin', uid: selectedUser.uid, name: selectedUser.name })
                   }}>Make admin</Button>
                 )}
-                {selectedUser.isSuspended ? (
+                {isSuspensionActive(selectedUser) ? (
                   <Button size="sm" variant="outline" onClick={() => {
                     setSelectedUser(null)
                     setConfirmAction({ type: 'unsuspend', uid: selectedUser.uid, name: selectedUser.name })
@@ -485,7 +551,14 @@ export default function UserManagement() {
                 ) : (
                   <Button size="sm" variant="destructive" onClick={() => {
                     setSelectedUser(null)
-                    setConfirmAction({ type: 'suspend', uid: selectedUser.uid, name: selectedUser.name })
+                    setConfirmAction({
+                      type: 'suspend',
+                      uid: selectedUser.uid,
+                      name: selectedUser.name,
+                      durationDays: suspensionDurationDays,
+                      customDurationDays: customSuspensionDays,
+                      isCustom: false,
+                    })
                   }}>Suspend</Button>
                 )}
               </div>
@@ -542,6 +615,53 @@ export default function UserManagement() {
                   placeholder="Please resubmit the required documents and try again."
                 />
               </div>
+            </div>
+          )}
+
+          {confirmAction?.type === 'suspend' && (
+            <div className="space-y-2 py-2">
+              <label className="text-sm font-medium text-foreground">Suspension duration</label>
+              <select
+                value={confirmAction.isCustom ? 'custom' : (confirmAction.durationDays ?? suspensionDurationDays)}
+                onChange={(e) => {
+                  const nextValue = e.target.value
+                  if (nextValue === 'custom') {
+                    setConfirmAction((current) => current && current.type === 'suspend'
+                      ? { ...current, isCustom: true, customDurationDays: current.customDurationDays ?? customSuspensionDays }
+                      : current)
+                    return
+                  }
+
+                  const numericValue = Number(nextValue)
+                  setSuspensionDurationDays(numericValue)
+                  setConfirmAction((current) => current && current.type === 'suspend'
+                    ? { ...current, isCustom: false, durationDays: numericValue }
+                    : current)
+                }}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+              >
+                {suspensionOptions.map((option) => (
+                  <option key={option.label} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+
+              {confirmAction.isCustom && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Custom days</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={confirmAction.customDurationDays ?? customSuspensionDays}
+                    onChange={(e) => {
+                      const nextValue = Number(e.target.value) || 1
+                      setCustomSuspensionDays(nextValue)
+                      setConfirmAction((current) => current && current.type === 'suspend'
+                        ? { ...current, customDurationDays: nextValue }
+                        : current)
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
