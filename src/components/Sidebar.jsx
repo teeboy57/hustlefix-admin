@@ -38,8 +38,8 @@ export default function Sidebar({ open, onClose }) {
       >
         <div className="flex h-16 items-center justify-between border-b border-border/80 px-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-500 text-primary-foreground shadow-lg shadow-indigo-500/20">
-              <Wrench size={14} />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-500 p-1 shadow-lg shadow-indigo-500/20">
+              <img src="/hustlefix-icon.svg" alt="HustleFix logo" className="h-full w-full object-contain" />
             </div>
             <div>
               <span className="block text-sm font-semibold tracking-tight text-foreground">HustleFix</span>

@@ -55,8 +55,8 @@ export default function Login() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="relative flex items-center gap-2.5"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15">
-            <Wrench className="h-4.5 w-4.5" size={18} />
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 shadow-lg shadow-indigo-950/10 ring-1 ring-white/20">
+            <img src="/hustlefix-icon.svg" alt="HustleFix logo" className="h-8 w-8 object-contain" />
           </div>
           <span className="text-lg font-semibold tracking-tight">HustleFix</span>
         </motion.div>
@@ -95,8 +95,8 @@ export default function Login() {
           className="w-full max-w-md sm:max-w-lg"
         >
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Wrench size={18} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-500 text-primary-foreground shadow-lg shadow-indigo-500/15">
+              <img src="/hustlefix-icon.svg" alt="HustleFix logo" className="h-7 w-7 object-contain" />
             </div>
             <span className="text-lg font-semibold tracking-tight">HustleFix</span>
           </div>
