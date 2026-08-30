@@ -1,5 +1,12 @@
 ﻿# HustleFix Admin
 
+## Live Demo
+
+Visit the admin dashboard here:
+
+https://hustlefix-admin.netlify.app/
+
+
 HustleFix Admin is a React + Vite dashboard for managing users, jobs, transactions, emergency alerts, and moderation workflows for the HustleFix platform.
 
 ## Features
