@@ -38,9 +38,9 @@ export default function Login() {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+    <div className="grid min-h-screen w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-2">
       {/* Left — brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-12 text-primary-foreground lg:flex">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-6 text-primary-foreground sm:p-8 lg:flex lg:p-12">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{
@@ -87,12 +87,12 @@ export default function Login() {
       </div>
 
       {/* Right — form */}
-      <div className="flex items-center justify-center bg-background p-8">
+      <div className="flex items-center justify-center bg-background p-4 sm:p-6 lg:p-8">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-sm"
+          className="w-full max-w-md sm:max-w-lg"
         >
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">

@@ -17,21 +17,21 @@ export default function Header({ onMenuClick, title }) {
   const emergencyRequests = useEmergencyRequests()
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/80 bg-white/80 px-4 shadow-[0_10px_25px_rgba(15,23,42,0.03)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 sm:px-6">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/80 bg-white/80 px-3 shadow-[0_10px_25px_rgba(15,23,42,0.03)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 sm:px-6">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           onClick={onMenuClick}
           className="rounded-lg border border-border bg-white p-2 text-muted-foreground shadow-sm hover:bg-secondary lg:hidden"
         >
           <Menu size={18} />
         </button>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Operations</p>
-          <h1 className="text-sm font-semibold tracking-tight text-foreground">{title}</h1>
+        <div className="min-w-0">
+          <p className="hidden text-[10px] uppercase tracking-[0.22em] text-muted-foreground sm:block">Operations</p>
+          <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">{title}</h1>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger className="relative rounded-xl border border-border bg-white p-2.5 text-muted-foreground shadow-sm transition hover:bg-secondary hover:text-foreground">
             <Bell size={16} />
@@ -66,11 +66,11 @@ export default function Header({ onMenuClick, title }) {
               <AvatarImage src={profile?.photoURL} alt={profile?.name} />
               <AvatarFallback>{initials(profile?.name || profile?.email || 'A')}</AvatarFallback>
             </Avatar>
-            <div className="hidden text-left sm:block">
-              <p className="text-xs font-medium leading-none text-foreground">
+            <div className="hidden min-w-0 text-left sm:block">
+              <p className="truncate text-xs font-medium leading-none text-foreground">
                 {profile?.name || 'Admin'}
               </p>
-              <p className="mt-0.5 text-[11px] leading-none text-muted-foreground">
+              <p className="mt-0.5 truncate text-[11px] leading-none text-muted-foreground">
                 {profile?.email}
               </p>
             </div>

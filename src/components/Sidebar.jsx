@@ -32,7 +32,7 @@ export default function Sidebar({ open, onClose }) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-white/90 shadow-[8px_0_30px_rgba(15,23,42,0.06)] backdrop-blur-md transition-transform duration-200 lg:static lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-xs flex-col border-r border-border bg-white/90 shadow-[8px_0_30px_rgba(15,23,42,0.06)] backdrop-blur-md transition-transform duration-200 sm:w-64 lg:static lg:w-64 lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -60,7 +60,7 @@ export default function Sidebar({ open, onClose }) {
               onClick={onClose}
               className={({ isActive }) =>
                 cn(
-                  'group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  'group relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-all duration-200 sm:px-3',
                   isActive
                     ? 'bg-primary/8 text-primary shadow-sm'
                     : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
@@ -77,7 +77,7 @@ export default function Sidebar({ open, onClose }) {
                     />
                   )}
                   <item.icon size={16} className="relative shrink-0" />
-                  <span className="relative">{item.label}</span>
+                  <span className="relative truncate text-left">{item.label}</span>
                   {item.emergency && emergencyCount > 0 && (
                     <span className="relative ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground shadow-sm">
                       {emergencyCount}

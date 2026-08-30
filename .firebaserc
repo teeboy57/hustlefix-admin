@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "hustlefix-9c7f6"
-  }
+    "default": "hustlefix-9c7f6",
+    "git add .": "hustlefix-9c7f6"
+  },
+  "targets": {},
+  "etags": {}
 }

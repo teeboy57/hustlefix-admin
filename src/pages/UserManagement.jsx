@@ -216,7 +216,7 @@ export default function UserManagement() {
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by name or email…"
-              className="w-64 pl-8"
+              className="w-full min-w-0 sm:w-64 pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

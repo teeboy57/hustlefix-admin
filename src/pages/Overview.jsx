@@ -180,7 +180,7 @@ export default function Overview() {
 
   return (
     <div className="space-y-6">
-      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Users"
           value={stats?.totalUsers.toLocaleString()}
@@ -211,7 +211,7 @@ export default function Overview() {
         />
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.5fr_0.9fr]">
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.5fr_0.9fr]">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.4 }}>
           <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
@@ -282,14 +282,14 @@ export default function Overview() {
               ) : (
                 recentActivity.map((item) => (
                   <div key={item.id} className="flex items-start gap-3 rounded-lg border border-border bg-secondary/40 px-3 py-2.5">
-                    <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-background text-xs font-semibold text-muted-foreground">
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background text-xs font-semibold text-muted-foreground">
                       {item.type === 'job' ? 'J' : item.type === 'user' ? 'U' : item.type === 'emergency' ? 'E' : 'P'}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground">{item.title}</p>
                       <p className="text-xs text-muted-foreground">{item.meta}</p>
                     </div>
-                    <span className="whitespace-nowrap text-[11px] text-muted-foreground">{new Date(item.timestamp).toLocaleDateString('en-ZA')}</span>
+                    <span className="hidden whitespace-nowrap text-[11px] text-muted-foreground sm:inline-block">{new Date(item.timestamp).toLocaleDateString('en-ZA')}</span>
                   </div>
                 ))
               )}

@@ -20,10 +20,10 @@ export default function DashboardLayout() {
   const title = titles[location.pathname] || 'HustleFix Admin'
 
   return (
-    <div className="flex h-screen overflow-hidden bg-secondary/40">
+    <div className="flex min-h-screen w-full overflow-hidden bg-secondary/40">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} title={title} />
 
         <main className="flex-1 overflow-y-auto">
