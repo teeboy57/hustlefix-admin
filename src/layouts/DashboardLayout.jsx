@@ -11,6 +11,9 @@ const titles = {
   '/emergency': 'Emergency Hub',
   '/transactions': 'Transaction Log',
   '/activity': 'Activity Log',
+  '/revenue': 'Revenue History',
+  '/payouts': 'Payout Requests',
+  '/command-control': 'Command & Control',
   '/reports': 'Reports',
   '/support-chat': 'Support Chat',
 }

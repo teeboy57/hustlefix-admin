@@ -156,13 +156,21 @@ export default function JobOversight() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.3) }}
               >
-                <Card className="h-full transition-shadow hover:shadow-popover">
+                <Card className={`h-full transition-shadow hover:shadow-popover ${status === 'disputed' ? 'border-destructive/50 bg-destructive/[0.02]' : ''}`}>
                   <CardContent className="flex h-full flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium leading-snug text-foreground">
-                        {job.title || 'Untitled job'}
-                      </p>
-                      <Badge variant={config.variant} className="shrink-0">{config.label}</Badge>
+                      <div className="flex items-center gap-2">
+                        {status === 'disputed' && (
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-60" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                          </span>
+                        )}
+                        <p className="text-sm font-medium leading-snug text-foreground">
+                          {job.title || 'Untitled job'}
+                        </p>
+                      </div>
+                      <Badge variant={status === 'disputed' ? 'destructive' : config.variant} className="shrink-0">{status === 'disputed' ? 'Disputed' : config.label}</Badge>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">{job.category || 'General'}</p>
 

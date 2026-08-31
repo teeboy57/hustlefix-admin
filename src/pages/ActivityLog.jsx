@@ -8,6 +8,14 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate } from '@/lib/utils'
 
+const actionMeta = {
+  LOGIN: { label: 'Login', variant: 'default' },
+  NEW_SERVICE: { label: 'New Service', variant: 'secondary' },
+  PAYMENT_PROCESSED: { label: 'Payment Processed', variant: 'success' },
+  WITHDRAWAL_APPROVED: { label: 'Withdrawal Approved', variant: 'warning' },
+  DEFAULT: { label: 'Activity', variant: 'outline' },
+}
+
 export default function ActivityLog() {
   const [items, setItems] = useState(null)
   const [search, setSearch] = useState('')
@@ -28,11 +36,12 @@ export default function ActivityLog() {
     if (!items) return []
     const query = search.trim().toLowerCase()
     if (!query) return items
-    return items.filter((item) =>
-      `${item.message || ''} ${item.adminName || ''} ${item.type || ''}`
+    return items.filter((item) => {
+      const action = String(item.action || item.type || '').toUpperCase()
+      return `${item.message || ''} ${item.adminName || ''} ${action} ${actionMeta[action]?.label || ''}`
         .toLowerCase()
         .includes(query)
-    )
+    })
   }, [items, search])
 
   return (
@@ -71,27 +80,31 @@ export default function ActivityLog() {
               </div>
             )}
 
-            {filtered.map((item) => (
-              <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <ShieldCheck size={15} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{item.message || 'Admin activity'}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>{item.adminName || 'System admin'}</span>
-                      <span>•</span>
-                      <span className="capitalize">{item.type || 'activity'}</span>
+            {filtered.map((item) => {
+              const action = String(item.action || item.type || '').toUpperCase()
+              const meta = actionMeta[action] || actionMeta.DEFAULT
+              return (
+                <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <ShieldCheck size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{item.message || meta.label}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>{item.adminName || 'System admin'}</span>
+                        <span>•</span>
+                        <span className="capitalize">{meta.label}</span>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <Badge variant={meta.variant} className="capitalize">{meta.label}</Badge>
+                    <span className="text-[11px] text-muted-foreground">{formatDate(item.timestamp)}</span>
+                  </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  <Badge variant="secondary" className="capitalize">{item.type || 'activity'}</Badge>
-                  <span className="text-[11px] text-muted-foreground">{formatDate(item.timestamp)}</span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>

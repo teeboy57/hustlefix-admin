@@ -32,6 +32,16 @@ export default function Header({ onMenuClick, title }) {
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="hidden items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5 text-left lg:flex">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+            {initials(profile?.name || profile?.email || 'A')}
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Signed in as</p>
+            <p className="text-xs font-medium text-foreground">{profile?.name || profile?.email || 'Admin'}</p>
+          </div>
+        </div>
+
         <DropdownMenu>
           <DropdownMenuTrigger className="relative rounded-xl border border-border bg-white p-2.5 text-muted-foreground shadow-sm transition hover:bg-secondary hover:text-foreground">
             <Bell size={16} />

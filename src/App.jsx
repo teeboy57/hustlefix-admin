@@ -9,6 +9,9 @@ import JobOversight from '@/pages/JobOversight'
 import EmergencyHub from '@/pages/EmergencyHub'
 import TransactionLog from '@/pages/TransactionLog'
 import ActivityLog from '@/pages/ActivityLog'
+import RevenueHistory from '@/pages/RevenueHistory'
+import PayoutRequests from '@/pages/PayoutRequests'
+import CommandControl from '@/pages/CommandControl'
 import Reports from '@/pages/Reports'
 import SupportChat from '@/pages/SupportChat'
 import NotFound from '@/pages/NotFound'
@@ -26,6 +29,9 @@ export default function App() {
           <Route path="emergency" element={<EmergencyHub />} />
           <Route path="transactions" element={<TransactionLog />} />
           <Route path="activity" element={<ActivityLog />} />
+          <Route path="revenue" element={<RevenueHistory />} />
+          <Route path="payouts" element={<PayoutRequests />} />
+          <Route path="command-control" element={<CommandControl />} />
           <Route path="reports" element={<Reports />} />
           <Route path="support-chat" element={<SupportChat />} />
           <Route path="*" element={<NotFound />} />

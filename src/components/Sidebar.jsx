@@ -1,11 +1,13 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { ref, onValue } from 'firebase/database'
 import {
   LayoutDashboard, Users, Briefcase, Siren, Receipt, Activity, BarChart3, Wrench, X, MessageSquareText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEmergencyCount } from '@/hooks/useEmergencyCount'
+import { db } from '@/firebase/firebaseConfig'
 
 const navItems = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -14,12 +16,28 @@ const navItems = [
   { to: '/emergency', label: 'Emergency Hub', icon: Siren, emergency: true },
   { to: '/transactions', label: 'Transaction Log', icon: Receipt },
   { to: '/activity', label: 'Activity Log', icon: Activity },
+  { to: '/revenue', label: 'Revenue History', icon: BarChart3 },
+  { to: '/payouts', label: 'Payout Requests', icon: Receipt },
+  { to: '/command-control', label: 'Command & Control', icon: Wrench },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/support-chat', label: 'Support Chat', icon: MessageSquareText },
 ]
 
 export default function Sidebar({ open, onClose }) {
   const emergencyCount = useEmergencyCount()
+  const [disputeCount, setDisputeCount] = useState(0)
+
+  useEffect(() => {
+    const unsubscribe = onValue(ref(db, 'disputes'), (snapshot) => {
+      const data = snapshot.val() || {}
+      const unresolved = Object.values(data).filter(
+        (item) => String(item?.status || '').toLowerCase() !== 'resolved'
+      ).length
+      setDisputeCount(unresolved)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   return (
     <>
@@ -79,9 +97,14 @@ export default function Sidebar({ open, onClose }) {
                   )}
                   <item.icon size={16} className="relative shrink-0" />
                   <span className="relative truncate text-left">{item.label}</span>
-                  {item.emergency && emergencyCount > 0 && (
+                  {item.to === '/emergency' && emergencyCount > 0 && (
                     <span className="relative ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground shadow-sm">
                       {emergencyCount}
+                    </span>
+                  )}
+                  {item.to === '/command-control' && disputeCount > 0 && (
+                    <span className="relative ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold text-white shadow-sm">
+                      {disputeCount}
                     </span>
                   )}
                 </>
