@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ref, onValue, update, get, push } from 'firebase/database'
+import { ref, onValue, update, get, push, remove } from 'firebase/database'
 import { AlertTriangle, Megaphone, Radio } from 'lucide-react'
 import { db } from '@/firebase/firebaseConfig'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatDate, formatZAR } from '@/lib/utils'
 import { logAdminAction } from '@/lib/activity'
 
@@ -20,11 +21,13 @@ function normalizeWalletValue(value) {
 
 export default function CommandControl() {
   const [disputes, setDisputes] = useState(null)
+  const [broadcasts, setBroadcasts] = useState(null)
   const [message, setMessage] = useState('')
   const [broadcasting, setBroadcasting] = useState(false)
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
 
   useEffect(() => {
-    const unsubscribe = onValue(ref(db, 'disputes'), (snapshot) => {
+    const unsubscribeDisputes = onValue(ref(db, 'disputes'), (snapshot) => {
       const data = snapshot.val() || {}
       const list = Object.entries(data)
         .map(([id, item]) => ({ id, ...(item || {}) }))
@@ -32,7 +35,18 @@ export default function CommandControl() {
       setDisputes(list)
     })
 
-    return () => unsubscribe()
+    const unsubscribeBroadcasts = onValue(ref(db, 'broadcasts'), (snapshot) => {
+      const data = snapshot.val() || {}
+      const list = Object.entries(data)
+        .map(([id, item]) => ({ id, ...(item || {}) }))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      setBroadcasts(list)
+    })
+
+    return () => {
+      unsubscribeDisputes()
+      unsubscribeBroadcasts()
+    }
   }, [])
 
   const resolvedDisputes = useMemo(() => {
@@ -135,6 +149,25 @@ export default function CommandControl() {
     }
   }
 
+  const handleDeleteBroadcast = async (id) => {
+    if (!id) return
+
+    try {
+      await remove(ref(db, `broadcasts/${id}`))
+      await logAdminAction({
+        type: 'BROADCAST_DELETED',
+        message: `Deleted system announcement ${id}`,
+        entityId: id,
+      })
+    } catch (error) {
+      console.error('Failed to delete broadcast:', error)
+    } finally {
+      setPendingDeleteId(null)
+    }
+  }
+
+  const pendingDeleteBroadcast = broadcasts?.find((item) => item.id === pendingDeleteId) || null
+
   return (
     <div className="space-y-6">
       <Card>
@@ -207,6 +240,76 @@ export default function CommandControl() {
           <p className="text-xs text-muted-foreground">Broadcasts are saved to the /broadcasts node in Firebase as {`{ message, timestamp }`}.</p>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Megaphone size={16} className="text-primary" />
+            <p className="text-sm font-semibold text-foreground">System announcements</p>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {broadcasts === null && Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="border-b border-border px-4 py-3 last:border-b-0">
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ))}
+
+          {broadcasts !== null && broadcasts.length === 0 && (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              No system announcements currently active.
+            </div>
+          )}
+
+          {broadcasts?.map((broadcast) => (
+            <div key={broadcast.id} className="flex flex-col gap-3 border-b border-border px-4 py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm text-foreground">{broadcast.message || 'Untitled announcement'}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {broadcast.timestamp ? formatDate(broadcast.timestamp) : 'No date'}
+                </p>
+              </div>
+
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setPendingDeleteId(broadcast.id)}
+              >
+                Delete
+              </Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!pendingDeleteId} onOpenChange={(open) => !open && setPendingDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete announcement?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the selected system announcement from Firebase.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingDeleteBroadcast && (
+            <div className="rounded-lg border border-border bg-secondary/40 p-3 text-sm text-foreground">
+              {pendingDeleteBroadcast.message || 'Untitled announcement'}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleDeleteBroadcast(pendingDeleteId)}
+            >
+              Confirm delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
