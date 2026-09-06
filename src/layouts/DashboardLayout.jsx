@@ -16,6 +16,7 @@ const titles = {
   '/command-control': 'Command & Control',
   '/reports': 'Reports',
   '/support-chat': 'Support Chat',
+  '/verification': 'Verification Management',
 }
 
 export default function DashboardLayout() {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ref, onValue, update } from 'firebase/database'
-import { Search, MoreHorizontal, Ban, ShieldCheck, CheckCircle2, ShieldOff, UserCog } from 'lucide-react'
+import { Search, MoreHorizontal, Ban, ShieldCheck, CheckCircle2, ShieldOff, UserCog, ExternalLink, FileText } from 'lucide-react'
 import { db } from '@/firebase/firebaseConfig'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -82,6 +82,42 @@ const formatJoinedDate = (user) => {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+const getVerificationDocuments = (user) => {
+  if (!user) return []
+
+  const documents = []
+  const addDocument = (label, url) => {
+    if (typeof url === 'string' && url.trim()) {
+      documents.push({ label, url: url.trim() })
+    }
+  }
+
+  const storedDocuments = user.documents || user.verificationDocuments || user.verification?.documents
+  if (Array.isArray(storedDocuments)) {
+    storedDocuments.forEach((document, index) => {
+      if (typeof document === 'string') addDocument(`Document ${index + 1}`, document)
+      else addDocument(document?.name || document?.label || `Document ${index + 1}`, document?.url || document?.downloadURL)
+    })
+  } else if (storedDocuments && typeof storedDocuments === 'object') {
+    Object.entries(storedDocuments).forEach(([key, document]) => {
+      if (typeof document === 'string') addDocument(key, document)
+      else addDocument(document?.name || document?.label || key, document?.url || document?.downloadURL)
+    })
+  }
+
+  const knownFields = [
+    ['Identity document', user.idDocumentUrl || user.identityDocumentUrl || user.idUrl],
+    ['ID document front', user.idFrontUrl || user.idDocumentFrontUrl],
+    ['ID document back', user.idBackUrl || user.idDocumentBackUrl],
+    ['Proof of address', user.proofOfAddressUrl || user.addressProofUrl],
+    ['License or certificate', user.licenseUrl || user.certificationUrl],
+    ['Verification document', user.documentUrl || user.verificationDocumentUrl],
+  ]
+  knownFields.forEach(([label, url]) => addDocument(label, url))
+
+  return documents.filter((document, index, all) => all.findIndex((item) => item.url === document.url) === index)
 }
 
 export default function UserManagement() {
@@ -506,7 +542,7 @@ export default function UserManagement() {
                 </div>
                 <div className="rounded-lg border border-border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Verification</p>
-                  <p className="mt-1 font-medium text-foreground">{selectedUser.role === 'worker' ? (selectedUser.isVerified ? 'Verified' : 'Pending') : 'Not applicable'}</p>
+                  <p className="mt-1 font-medium capitalize text-foreground">{selectedUser.role === 'worker' ? (selectedUser.verificationStatus || (selectedUser.isVerified ? 'verified' : 'pending')) : 'Not applicable'}</p>
                 </div>
                 <div className="rounded-lg border border-border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Joined</p>
@@ -517,6 +553,38 @@ export default function UserManagement() {
                   <p className="mt-1 truncate font-mono text-xs text-foreground">{selectedUser.uid}</p>
                 </div>
               </div>
+
+              {selectedUser.role === 'worker' && (
+                <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Verification documents</p>
+                      <p className="text-xs text-muted-foreground">Review the files submitted by this worker.</p>
+                    </div>
+                    <FileText size={16} className="text-muted-foreground" />
+                  </div>
+                  {getVerificationDocuments(selectedUser).length > 0 ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {getVerificationDocuments(selectedUser).map((document) => (
+                        <a
+                          key={`${document.label}-${document.url}`}
+                          href={document.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/5"
+                        >
+                          <span className="truncate">{document.label}</span>
+                          <ExternalLink size={14} className="shrink-0" />
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-md bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+                      No verification document links were found on this user record.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2">
                 {selectedUser.role === 'worker' && !selectedUser.isVerified && (

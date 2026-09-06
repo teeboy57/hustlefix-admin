@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ref, onValue } from 'firebase/database'
 import {
-  LayoutDashboard, Users, Briefcase, Siren, Receipt, Activity, BarChart3, Wrench, X, MessageSquareText,
+  LayoutDashboard, Users, Briefcase, Siren, Receipt, Activity, BarChart3, Wrench, X, MessageSquareText, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEmergencyCount } from '@/hooks/useEmergencyCount'
@@ -21,6 +21,7 @@ const navItems = [
   { to: '/command-control', label: 'Command & Control', icon: Wrench },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/support-chat', label: 'Support Chat', icon: MessageSquareText },
+  { to: '/verification', label: 'Verification Management', icon: ShieldCheck },
 ]
 
 export default function Sidebar({ open, onClose }) {

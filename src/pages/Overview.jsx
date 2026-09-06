@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update } from 'firebase/database'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { logAdminAction } from '@/lib/activity'
+import { isPendingVerification } from '@/lib/verification'
 
 const container = {
   hidden: {},
@@ -69,6 +71,7 @@ function normalizeAmount(value) {
 }
 
 export default function Overview() {
+  const navigate = useNavigate()
   const [users, setUsers] = useState(null)
   const [jobs, setJobs] = useState(null)
   const [bookings, setBookings] = useState(null)
@@ -136,9 +139,7 @@ export default function Overview() {
     const revenue = bookingList
       .filter((b) => String(b.status).toLowerCase() === 'completed' || b.paid === true)
       .reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
-    const pendingVerifications = userList.filter(
-      (u) => u.role === 'worker' && (u.verificationStatus === 'pending' || (!u.verificationStatus && !u.isVerified))
-    ).length
+    const pendingVerifications = userList.filter(isPendingVerification).length
     const activeEmergencies = emergencyList.filter((e) => ['pending', 'responded'].includes(String(e.status || '').toLowerCase())).length
 
     return { totalUsers, activeJobs, revenue, pendingVerifications, activeEmergencies }
@@ -200,7 +201,7 @@ export default function Overview() {
           { label: 'Awaiting approval', value: stats.pendingVerifications.toLocaleString() },
           { label: 'Verified workers', value: userList.filter((user) => user.role === 'worker' && user.isVerified).length.toLocaleString() },
           { label: 'Unverified workers', value: userList.filter((user) => user.role === 'worker' && !user.isVerified).length.toLocaleString() },
-          { label: 'Needs admin review', value: userList.filter((user) => user.role === 'worker' && (user.verificationStatus === 'pending' || (!user.verificationStatus && !user.isVerified))).length.toLocaleString() },
+          { label: 'Needs admin review', value: userList.filter(isPendingVerification).length.toLocaleString() },
         ],
       },
     }
@@ -385,7 +386,7 @@ export default function Overview() {
           accent="bg-warning/15 text-warning-foreground"
           loading={loading}
           active={selectedMetric === 'verification'}
-          onClick={() => setSelectedMetric('verification')}
+          onClick={() => navigate('/verification')}
         />
       </motion.div>
 

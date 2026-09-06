@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ref, onValue, push, set, update } from 'firebase/database'
-import { MessageSquareText, Search, SendHorizonal, UserRound } from 'lucide-react'
-import { db } from '@/firebase/firebaseConfig'
+import { getDownloadURL, uploadBytes } from 'firebase/storage'
+import { ImagePlus, MessageSquareText, Search, SendHorizonal, UserRound, X } from 'lucide-react'
+import { db, storage } from '@/firebase/firebaseConfig'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,7 @@ const normalizeMessages = (data = {}) => {
       const senderId = message.senderId || message.userId || message.sender || ''
       const senderName = message.senderName || message.userName || message.name || (senderId === 'admin' ? 'Support Admin' : senderId)
       const messageText = message.messageText || message.text || message.message || ''
+      const imageUrl = message.imageUrl || message.imageURL || message.attachmentUrl || ''
       const timestamp = Number(message.timestamp || message.createdAt || 0)
 
       return {
@@ -51,10 +53,11 @@ const normalizeMessages = (data = {}) => {
         senderId,
         senderName,
         messageText,
+        imageUrl,
         timestamp,
       }
     })
-    .filter((message) => message.messageId && message.messageText)
+    .filter((message) => message.messageId && (message.messageText || message.imageUrl))
     .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0))
 }
 
@@ -77,8 +80,10 @@ export default function SupportChat() {
   const [messages, setMessages] = useState([])
   const [search, setSearch] = useState('')
   const [draft, setDraft] = useState('')
+  const [attachment, setAttachment] = useState(null)
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     const chatsRef = ref(db, 'user_chats/admin_support')
@@ -102,6 +107,13 @@ export default function SupportChat() {
       return
     }
 
+    const selectedMetadata = chatList.find((chat) => chat.chatId === selectedChatId)
+    if (selectedMetadata?.unreadCount > 0) {
+      update(ref(db, `user_chats/admin_support/${selectedMetadata.dbKey || selectedChatId}`), {
+        unreadCount: 0,
+      }).catch((error) => console.error('Failed to mark support chat as read:', error))
+    }
+
     const messagesRef = ref(db, `messages/${selectedChatId}`)
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val() || {}
@@ -109,7 +121,7 @@ export default function SupportChat() {
     })
 
     return () => unsubscribe()
-  }, [selectedChatId])
+  }, [selectedChatId, chatList])
 
   const selectedChat = useMemo(
     () => chatList.find((chat) => chat.chatId === selectedChatId) || null,
@@ -127,32 +139,45 @@ export default function SupportChat() {
   }, [chatList, search])
 
   const handleSendReply = async () => {
-    if (!selectedChatId || !draft.trim()) return
+    if (!selectedChatId || (!draft.trim() && !attachment)) return
 
     const messageText = draft.trim()
-    const replyMessage = {
-      messageId: `admin_${Date.now()}`,
-      senderId: 'admin',
-      senderName: 'Support Admin',
-      messageText,
-      timestamp: Date.now(),
-    }
 
     setSending(true)
     try {
+      const timestamp = Date.now()
+      let imageUrl = ''
+      if (attachment) {
+        if (!storage) throw new Error('Firebase Storage is not configured.')
+        const storageRef = ref(storage, `support-chat/${selectedChatId}/${timestamp}-${attachment.name}`)
+        imageUrl = await getDownloadURL(await uploadBytes(storageRef, attachment))
+      }
+
+      const replyMessage = {
+        messageId: `admin_${timestamp}`,
+        senderId: 'admin',
+        senderName: 'Support Admin',
+        messageText,
+        imageUrl,
+        timestamp,
+      }
       const messagesRef = ref(db, `messages/${selectedChatId}`)
       const newMessageRef = push(messagesRef)
       await set(newMessageRef, replyMessage)
 
       const metadataRef = ref(db, `user_chats/admin_support/${selectedChat?.dbKey || selectedChatId}`)
       await update(metadataRef, {
-        lastMessage: messageText,
+        lastMessage: messageText || 'Image attachment',
         updatedAt: Date.now(),
         lastSender: 'Support Admin',
+        unreadCount: 0,
+        userUnreadCount: 1,
         chatId: selectedChatId,
       })
 
       setDraft('')
+      setAttachment(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (error) {
       console.error('Failed to send support reply:', error)
     } finally {
@@ -261,7 +286,12 @@ export default function SupportChat() {
                             <p className="text-[11px] font-medium opacity-80">
                               {message.senderName}
                             </p>
-                            <p className="mt-1 whitespace-pre-wrap text-sm">{message.messageText}</p>
+                            {message.imageUrl && (
+                              <a href={message.imageUrl} target="_blank" rel="noreferrer" className="mt-2 block overflow-hidden rounded-lg">
+                                <img src={message.imageUrl} alt="Support attachment" className="max-h-64 max-w-full object-contain" />
+                              </a>
+                            )}
+                            {message.messageText && <p className="mt-1 whitespace-pre-wrap text-sm">{message.messageText}</p>}
                             <p className={`mt-1 text-[10px] ${isAdmin ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                               {formatTimestamp(message.timestamp)}
                             </p>
@@ -273,7 +303,25 @@ export default function SupportChat() {
                 </div>
 
                 <div className="border-t border-border p-3">
+                  {attachment && (
+                    <div className="mb-2 flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                      <span className="truncate">{attachment.name}</span>
+                      <button type="button" onClick={() => { setAttachment(null); if (fileInputRef.current) fileInputRef.current.value = '' }} aria-label="Remove attachment" className="text-muted-foreground hover:text-foreground">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-end gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => setAttachment(event.target.files?.[0] || null)}
+                    />
+                    <Button type="button" variant="outline" className="h-[80px] w-12 px-0" onClick={() => fileInputRef.current?.click()} aria-label="Attach image">
+                      <ImagePlus size={17} />
+                    </Button>
                     <textarea
                       value={draft}
                       onChange={(event) => setDraft(event.target.value)}
@@ -283,7 +331,7 @@ export default function SupportChat() {
                     />
                     <Button
                       onClick={handleSendReply}
-                      disabled={sending || !draft.trim()}
+                      disabled={sending || (!draft.trim() && !attachment)}
                       className="h-[80px] min-w-[110px]"
                     >
                       <SendHorizonal size={15} className="mr-2" />

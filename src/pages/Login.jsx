@@ -44,36 +44,30 @@ export default function Login() {
       const userIdentifier = email.trim() || 'suspended-user'
       const userId = (window?.crypto?.randomUUID?.() || `suspended-${Date.now()}`)
       const chatId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      const payload = {
-        id: chatId,
+      const timestamp = Date.now()
+      const messageText = 'Hello Admin, my account has been suspended and I need help.'
+      const chatMetadata = {
+        chatId,
         userId,
+        userName: userIdentifier,
         userEmail: userIdentifier,
-        userDisplayName: userIdentifier,
-        participantIds: ['support-admin', userId],
-        participants: ['Support Admin', userIdentifier],
         type: 'suspension_support',
         status: 'open',
         subject: 'Account suspension support',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        lastMessage: 'Hello Admin, my account has been suspended and I need help.',
-        messages: [
-          {
-            id: `${Date.now()}-system`,
-            sender: 'user',
-            senderName: userIdentifier,
-            text: 'Hello Admin, my account has been suspended and I need help.',
-            createdAt: Date.now(),
-          },
-        ],
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        lastMessage: messageText,
+        lastSender: userId,
+        unreadCount: 1,
       }
 
-      const supportChatRef = ref(db, `support_chats/${chatId}`)
-      const adminChatRef = ref(db, `admin_chats/${chatId}`)
-      await set(supportChatRef, payload)
-      await set(adminChatRef, {
-        ...payload,
-        visibility: 'admin_only',
+      await set(ref(db, `user_chats/admin_support/${chatId}`), chatMetadata)
+      await set(push(ref(db, `messages/${chatId}`)), {
+        messageId: `${chatId}-initial`,
+        senderId: userId,
+        senderName: userIdentifier,
+        messageText,
+        timestamp,
       })
 
       setError('A support chat has been created for our admin team. Please keep this page open and wait for a reply.')

@@ -14,12 +14,15 @@ import PayoutRequests from '@/pages/PayoutRequests'
 import CommandControl from '@/pages/CommandControl'
 import Reports from '@/pages/Reports'
 import SupportChat from '@/pages/SupportChat'
+import VerificationManagement from '@/pages/VerificationManagement'
+import PitchDeck from '@/pages/PitchDeck'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/pitch" element={<PitchDeck />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
@@ -34,6 +37,7 @@ export default function App() {
           <Route path="command-control" element={<CommandControl />} />
           <Route path="reports" element={<Reports />} />
           <Route path="support-chat" element={<SupportChat />} />
+          <Route path="verification" element={<VerificationManagement />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>
