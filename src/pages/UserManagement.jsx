@@ -22,6 +22,7 @@ import {
 import { initials } from '@/lib/utils'
 import { logAdminAction } from '@/lib/activity'
 import { useAuth } from '@/context/AuthContext'
+import { getVerificationDocuments } from '@/lib/verification'
 
 const roleFilters = ['all', 'client', 'worker', 'admin']
 const suspensionOptions = [
@@ -82,42 +83,6 @@ const formatJoinedDate = (user) => {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-const getVerificationDocuments = (user) => {
-  if (!user) return []
-
-  const documents = []
-  const addDocument = (label, url) => {
-    if (typeof url === 'string' && url.trim()) {
-      documents.push({ label, url: url.trim() })
-    }
-  }
-
-  const storedDocuments = user.documents || user.verificationDocuments || user.verification?.documents
-  if (Array.isArray(storedDocuments)) {
-    storedDocuments.forEach((document, index) => {
-      if (typeof document === 'string') addDocument(`Document ${index + 1}`, document)
-      else addDocument(document?.name || document?.label || `Document ${index + 1}`, document?.url || document?.downloadURL)
-    })
-  } else if (storedDocuments && typeof storedDocuments === 'object') {
-    Object.entries(storedDocuments).forEach(([key, document]) => {
-      if (typeof document === 'string') addDocument(key, document)
-      else addDocument(document?.name || document?.label || key, document?.url || document?.downloadURL)
-    })
-  }
-
-  const knownFields = [
-    ['Identity document', user.idDocumentUrl || user.identityDocumentUrl || user.idUrl],
-    ['ID document front', user.idFrontUrl || user.idDocumentFrontUrl],
-    ['ID document back', user.idBackUrl || user.idDocumentBackUrl],
-    ['Proof of address', user.proofOfAddressUrl || user.addressProofUrl],
-    ['License or certificate', user.licenseUrl || user.certificationUrl],
-    ['Verification document', user.documentUrl || user.verificationDocumentUrl],
-  ]
-  knownFields.forEach(([label, url]) => addDocument(label, url))
-
-  return documents.filter((document, index, all) => all.findIndex((item) => item.url === document.url) === index)
 }
 
 export default function UserManagement() {

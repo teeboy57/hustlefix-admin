@@ -5,12 +5,11 @@ import { ref, onValue, update } from 'firebase/database'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
-import { Users, Briefcase, Banknote, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet, CircleDollarSign } from 'lucide-react'
+import { Users, Briefcase, Banknote, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react'
 import { db } from '@/firebase/firebaseConfig'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatZAR } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { logAdminAction } from '@/lib/activity'
@@ -78,7 +77,6 @@ export default function Overview() {
   const [emergencies, setEmergencies] = useState(null)
   const [walletBalance, setWalletBalance] = useState(null)
   const [revenueRecords, setRevenueRecords] = useState(null)
-  const [payoutRequests, setPayoutRequests] = useState(null)
   const [selectedMetric, setSelectedMetric] = useState('users')
 
   useEffect(() => {
@@ -99,18 +97,6 @@ export default function Overview() {
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       setRevenueRecords(list)
     })
-    const unsubPayouts = onValue(ref(db, 'withdrawal_requests'), (snap) => {
-      const data = snap.val() || {}
-      const list = Object.entries(data)
-        .map(([id, item]) => ({ id, ...(item || {}) }))
-        .map((item) => ({
-          ...item,
-          amount: Number(item.amount ?? item.totalAmount ?? 0) || 0,
-        }))
-        .sort((a, b) => (b.timestamp || b.createdAt || 0) - (a.timestamp || a.createdAt || 0))
-      setPayoutRequests(list)
-    })
-
     return () => {
       unsubUsers()
       unsubJobs()
@@ -118,7 +104,6 @@ export default function Overview() {
       unsubEmergencies()
       unsubWallet()
       unsubRevenue()
-      unsubPayouts()
     }
   }, [])
 
@@ -286,46 +271,6 @@ export default function Overview() {
 
     return Object.entries(buckets).map(([month, jobs]) => ({ month, jobs }))
   }, [jobs, loading])
-
-  const approveWithdrawalRequest = async (request) => {
-    if (!request) return
-    const requestId = request.id
-    const userId = request.userId || request.uid || request.customerId || 'admin'
-    const requestAmount = Number(request.amount || request.totalAmount || 0) || 0
-
-    try {
-      await update(ref(db, `withdrawal_requests/${requestId}`), {
-        status: 'completed',
-        completedAt: Date.now(),
-        completedBy: 'admin',
-      })
-
-      await update(ref(db, `transactions/${userId}/${requestId}`), {
-        id: requestId,
-        type: 'Withdrawal',
-        amount: -Math.abs(requestAmount),
-        timestamp: Date.now(),
-        status: 'completed',
-        description: `Withdrawal request ${requestId}`,
-      })
-
-      await logAdminAction({
-        type: 'WITHDRAWAL_APPROVED',
-        message: `Approved withdrawal request ${requestId} for ${formatZAR(requestAmount)}`,
-        entityId: requestId,
-        adminName: 'Admin',
-        adminId: 'system',
-      })
-
-      setPayoutRequests((current) =>
-        current
-          ? current.map((item) => (item.id === requestId ? { ...item, status: 'completed' } : item))
-          : current
-      )
-    } catch (error) {
-      console.error('Failed to approve withdrawal request:', error)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -505,7 +450,7 @@ export default function Overview() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+      <div className="grid grid-cols-1 gap-4">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
@@ -551,44 +496,6 @@ export default function Overview() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Payout Request List</p>
-              <p className="text-xs text-muted-foreground">Live from /withdrawal_requests</p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 p-0">
-            {payoutRequests === null && Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="border-b border-border px-4 py-3 last:border-b-0">
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ))}
-
-            {payoutRequests !== null && payoutRequests.length === 0 && (
-              <div className="px-4 py-10 text-center text-sm text-muted-foreground">No withdrawal requests.</div>
-            )}
-
-            {payoutRequests?.map((request) => (
-              <div key={request.id} className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{request.userName || request.userId || request.uid || request.id}</p>
-                  <p className="text-[11px] text-muted-foreground">{formatZAR(request.amount || 0)} · {request.status || 'pending'}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={String(request.status || 'pending').toLowerCase() === 'completed' ? 'success' : 'warning'} className="capitalize">
-                    {request.status || 'pending'}
-                  </Badge>
-                  {String(request.status || '').toLowerCase() !== 'completed' && (
-                    <Button size="sm" variant="outline" onClick={() => approveWithdrawalRequest(request)} className="gap-1.5">
-                      <CircleDollarSign size={13} /> Approve
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

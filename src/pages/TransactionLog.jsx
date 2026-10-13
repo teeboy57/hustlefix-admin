@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ref, onValue, update } from 'firebase/database'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { Search, ArrowDownToLine, RefreshCcw, CircleDollarSign } from 'lucide-react'
 import { db } from '@/firebase/firebaseConfig'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,19 +16,24 @@ import {
 import { formatZAR, formatDate } from '@/lib/utils'
 import { logAdminAction } from '@/lib/activity'
 import { sendUserNotification } from '@/lib/fcm'
+import { downloadCsv } from '@/lib/export'
+import { getFinancialType, getPaymentStatus, getQuoteAmount, getBookingFeeAmount } from '@/lib/finance'
 
 const statusVariant = {
   completed: 'success',
   paid: 'success',
+  confirmed: 'default',
+  quoted: 'warning',
+  in_progress: 'default',
+  'in-progress': 'default',
   pending: 'warning',
+  cancelled: 'destructive',
   failed: 'destructive',
   refunded: 'secondary',
 }
 
 function isPaymentMade(booking) {
-  return booking.paid === true ||
-    String(booking.paymentStatus || '').toLowerCase() === 'paid' ||
-    String(booking.payment?.status || '').toLowerCase() === 'paid'
+  return ['PAID', 'SETTLED'].includes(getPaymentStatus(booking))
 }
 
 function isClientConfirmed(booking) {
@@ -77,7 +84,7 @@ export default function TransactionLog() {
         String(b.payoutStatus || '').toLowerCase().includes(search.toLowerCase())
 
       let matchesStatus = true
-      const bookingStatus = String(b.status || '').toLowerCase()
+      const bookingStatus = String(b.status || '').toLowerCase().replace(/-/g, '_')
 
       if (statusFilter === 'all') {
         matchesStatus = true
@@ -86,7 +93,7 @@ export default function TransactionLog() {
       } else if (statusFilter === 'approved_payout') {
         matchesStatus = isPayoutReleased(b)
       } else {
-        matchesStatus = bookingStatus === statusFilter
+        matchesStatus = bookingStatus === statusFilter.replace(/-/g, '_')
       }
 
       return matchesSearch && matchesStatus
@@ -97,7 +104,11 @@ export default function TransactionLog() {
     if (!bookings) return 0
     return bookings
       .filter((b) => ['completed', 'paid'].includes(String(b.status).toLowerCase()))
-      .reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
+      .reduce((sum, b) => sum + (
+        getFinancialType(b) === 'Quote settlement'
+          ? getQuoteAmount(b) || (Number(b.amount) || 0)
+          : getBookingFeeAmount(b) || (Number(b.amount) || 0)
+      ), 0)
   }, [bookings])
 
   const pendingPayoutValue = useMemo(() => {
@@ -109,26 +120,54 @@ export default function TransactionLog() {
 
   const totalWorkerPayout = totalRevenue
 
+  const exportRows = () => filtered.map((b) => {
+    const type = getFinancialType(b)
+    const bookingFee = getBookingFeeAmount(b)
+    const quoteAmount = getQuoteAmount(b)
+    return [
+      b.id || 'N/A',
+      type,
+      b.clientName || 'Unknown',
+      b.workerName || 'Unknown',
+      formatZAR(bookingFee || (type === 'Direct booking fee' ? Number(b.amount) || 0 : 0)),
+      formatZAR(quoteAmount || (type === 'Quote settlement' ? Number(b.amount) || 0 : 0)),
+      b.status || 'Unknown',
+      getPaymentStatus(b),
+      b.completionCode || b.completionOTP || 'N/A',
+      b.createdAt || b.timestamp ? new Date(b.createdAt || b.timestamp).toLocaleString() : 'N/A',
+    ]
+  })
+
+  const exportHeaders = [
+    'Transaction ID', 'Financial Type', 'Client', 'Worker', 'Booking Fee (ZAR)',
+    'Quote Settlement (ZAR)', 'Job Status', 'Payment Status', 'Completion Code', 'Date',
+  ]
+
   const exportCsv = () => {
     if (!filtered.length) return
-    const headers = ['Transaction ID', 'Client', 'Worker', 'Amount (ZAR)', 'Status', 'Date']
-    const rows = filtered.map((b) => [
-      b.id,
-      b.clientName || '',
-      b.workerName || '',
-      b.amount || 0,
-      b.status || '',
-      b.createdAt ? new Date(b.createdAt).toISOString() : '',
-    ])
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'hustlefix-transactions.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-    logAdminAction({ type: 'export_transactions', message: `Exported ${filtered.length} transactions`, entityId: 'transactions' })
+    downloadCsv('hustlefix-transactions.csv', exportHeaders, exportRows())
+    logAdminAction({ type: 'export_transactions', message: `Exported ${filtered.length} transactions as CSV`, entityId: 'transactions' })
+  }
+
+  const exportPdf = () => {
+    if (!filtered.length) return
+
+    const doc = new jsPDF({ orientation: 'landscape' })
+    doc.setFontSize(16)
+    doc.text('HustleFix Transactions Report', 14, 18)
+
+    autoTable(doc, {
+      head: [exportHeaders],
+      body: exportRows(),
+      startY: 26,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [13, 90, 88], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 10, right: 10 },
+    })
+
+    doc.save('hustlefix-transactions.pdf')
+    logAdminAction({ type: 'export_transactions', message: `Exported ${filtered.length} transactions as PDF`, entityId: 'transactions' })
   }
 
   const writeTransactionRecord = async ({ userId, bookingId, amount, serviceTTitle, type = 'Payout' }) => {
@@ -164,8 +203,8 @@ export default function TransactionLog() {
       const booking = bookings?.find((item) => item.id === bookingId)
       if (!booking) return
 
-      if (String(booking.paymentStatus || '').toUpperCase() !== 'PAID') {
-        setActionError('This payout cannot be approved until paymentStatus is PAID.')
+      if (!['PAID', 'SETTLED'].includes(getPaymentStatus(booking))) {
+        setActionError('This payout cannot be approved until paymentStatus is PAID or SETTLED.')
         return
       }
 
@@ -216,7 +255,7 @@ export default function TransactionLog() {
         <div>
           <p className="text-sm font-semibold text-foreground">Transactions</p>
           <p className="text-xs text-muted-foreground">
-            {bookings ? `${filtered.length} of ${bookings.length}` : '—'} · Total processed {formatZAR(totalRevenue)} · Pending payouts {formatZAR(pendingPayoutValue)} · Worker payouts {formatZAR(totalWorkerPayout)}
+            {bookings ? `${filtered.length} of ${bookings.length}` : '—'} · Processed transaction value {formatZAR(totalRevenue)} · Pending payouts {formatZAR(pendingPayoutValue)} · Worker payouts {formatZAR(totalWorkerPayout)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -230,7 +269,7 @@ export default function TransactionLog() {
             />
           </div>
           <div className="flex items-center rounded-lg border border-border bg-white p-0.5">
-            {['all', 'pending', 'completed', 'failed', 'refunded', 'pending_payout', 'approved_payout'].map((s) => (
+            {['all', 'pending', 'confirmed', 'quoted', 'in_progress', 'completed', 'cancelled', 'pending_payout', 'approved_payout'].map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
@@ -242,8 +281,11 @@ export default function TransactionLog() {
               </button>
             ))}
           </div>
+          <Button variant="outline" size="sm" onClick={exportPdf}>
+            <ArrowDownToLine size={14} /> Export PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={exportCsv}>
-            <ArrowDownToLine size={14} /> Export
+            <ArrowDownToLine size={14} /> Export CSV
           </Button>
         </div>
       </div>
@@ -262,8 +304,9 @@ export default function TransactionLog() {
                 <TableHead>Transaction</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Worker</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Financial Type / Amount</TableHead>
+                <TableHead>Job / Payment Status</TableHead>
+                <TableHead>Completion Code</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
@@ -271,7 +314,7 @@ export default function TransactionLog() {
               {bookings === null &&
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={7}>
                       <Skeleton className="h-8 w-full" />
                     </TableCell>
                   </TableRow>
@@ -279,7 +322,7 @@ export default function TransactionLog() {
 
               {bookings !== null && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                     No transactions found.
                   </TableCell>
                 </TableRow>
@@ -296,11 +339,23 @@ export default function TransactionLog() {
                   <TableCell className="font-mono text-xs text-muted-foreground">#{b.id.slice(0, 8)}</TableCell>
                   <TableCell className="text-sm font-medium text-foreground">{b.clientName || '—'}</TableCell>
                   <TableCell className="text-sm text-foreground">{b.workerName || '—'}</TableCell>
-                  <TableCell className="text-sm font-semibold text-foreground">{formatZAR(b.amount)}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <Badge variant="outline">{getFinancialType(b)}</Badge>
+                      {getFinancialType(b) === 'Quote settlement' ? (
+                        <p className="text-xs text-foreground">Quote: {formatZAR(getQuoteAmount(b) || b.amount)}</p>
+                      ) : (
+                        <p className="text-xs text-foreground">Booking fee: {formatZAR(getBookingFeeAmount(b) || b.amount)}</p>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col items-start gap-2">
-                      <Badge variant={statusVariant[String(b.status).toLowerCase()] || 'secondary'} className="capitalize">
-                        {b.status || 'pending'}
+                      <Badge variant={statusVariant[String(b.status || 'pending').toLowerCase()] || 'secondary'} className="capitalize">
+                        Job: {String(b.status || 'pending').replace(/[_-]/g, ' ')}
+                      </Badge>
+                      <Badge variant={getPaymentStatus(b) === 'SETTLED' || getPaymentStatus(b) === 'PAID' ? 'success' : getPaymentStatus(b) === 'REFUNDED' ? 'secondary' : 'warning'}>
+                        {getPaymentStatus(b)}
                       </Badge>
                       {isReadyForPayout(b) && (
                         <Button variant="secondary" size="sm" className="h-7 px-2" onClick={() => approvePayout(b.id)}>
@@ -312,6 +367,7 @@ export default function TransactionLog() {
                       )}
                     </div>
                   </TableCell>
+                  <TableCell className="font-mono text-sm text-foreground">{b.completionCode || b.completionOTP || '—'}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(b.createdAt || b.timestamp)}
                   </TableCell>

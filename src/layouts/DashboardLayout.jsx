@@ -12,11 +12,11 @@ const titles = {
   '/transactions': 'Transaction Log',
   '/activity': 'Activity Log',
   '/revenue': 'Revenue History',
-  '/payouts': 'Payout Requests',
   '/command-control': 'Command & Control',
   '/reports': 'Reports',
   '/support-chat': 'Support Chat',
   '/verification': 'Verification Management',
+  '/services': 'Services',
 }
 
 export default function DashboardLayout() {

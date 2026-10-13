@@ -158,7 +158,7 @@ export default function VerificationManagement() {
       </Card>
 
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedUser?.name || 'Worker verification'}</DialogTitle>
             <DialogDescription>{selectedUser?.email || 'Review submitted verification documents.'}</DialogDescription>
@@ -167,17 +167,22 @@ export default function VerificationManagement() {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 {getVerificationDocuments(selectedUser).map((document) => (
-                  <div key={document.label} className="overflow-hidden rounded-lg border border-border bg-secondary/30">
-                    <div className="flex items-center justify-between px-3 py-2"><span className="text-sm font-medium">{document.label}</span><a href={document.url} target="_blank" rel="noreferrer" aria-label={`Open ${document.label}`} className="text-primary"><ExternalLink size={15} /></a></div>
+                  <div key={`${document.label}-${document.url}`} className="overflow-hidden rounded-lg border border-border bg-secondary/30">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-sm font-medium">{document.label}</span>
+                      <a href={document.url} target="_blank" rel="noreferrer" aria-label={`Open ${document.label}`} className="text-primary"><ExternalLink size={15} /></a>
+                    </div>
                     {isImageDocument(document.url) ? (
-                      <a href={document.url} target="_blank" rel="noreferrer" className="block aspect-[4/3] bg-white"><img src={document.url} alt={document.label} className="h-full w-full object-contain" /></a>
+                      <a href={document.url} target="_blank" rel="noreferrer" className="block h-64 bg-white sm:h-72">
+                        <img src={document.url} alt={document.label} className="h-full w-full object-contain" />
+                      </a>
                     ) : (
                       <a href={document.url} target="_blank" rel="noreferrer" className="flex aspect-[4/3] items-center justify-center gap-2 bg-secondary/40 text-sm font-medium text-primary hover:underline"><FileText size={18} /> Open document</a>
                     )}
                   </div>
                 ))}
               </div>
-              {getVerificationDocuments(selectedUser).length === 0 && <p className="rounded-md bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">No idDocumentUrl or certificateUrl was found on this user record.</p>}
+              {getVerificationDocuments(selectedUser).length === 0 && <p className="rounded-md bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">No verification document links were found on this user record.</p>}
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setSelectedUser(null)}>Close</Button>
                 <Button onClick={() => updateVerification(selectedUser, 'verified')} disabled={savingUid === selectedUser.uid}><ShieldCheck size={14} /> Approve worker</Button>

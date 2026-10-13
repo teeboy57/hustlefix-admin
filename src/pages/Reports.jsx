@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ref, onValue, update } from 'firebase/database'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { AlertTriangle, BarChart3, Download, TrendingUp, Users, Briefcase, ShieldAlert, CheckCircle2 } from 'lucide-react'
 import { db } from '@/firebase/firebaseConfig'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -7,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate, formatZAR } from '@/lib/utils'
+import { downloadCsv } from '@/lib/export'
+import { getFinancialType, getBookingFeeAmount, getQuoteAmount, getPaymentStatus } from '@/lib/finance'
 
 const normalizeStatus = (value) => String(value || 'pending').trim().toLowerCase()
 const suspensionOptions = [
@@ -27,6 +31,7 @@ export default function Reports() {
   const [users, setUsers] = useState(null)
   const [jobs, setJobs] = useState(null)
   const [bookings, setBookings] = useState(null)
+  const [revenueRecords, setRevenueRecords] = useState(null)
   const [reports, setReports] = useState([])
   const [disputes, setDisputes] = useState({})
   const [actioningId, setActioningId] = useState(null)
@@ -38,6 +43,10 @@ export default function Reports() {
     const unsubUsers = onValue(ref(db, 'users'), (snap) => setUsers(snap.val() || {}))
     const unsubJobs = onValue(ref(db, 'jobs'), (snap) => setJobs(snap.val() || {}))
     const unsubBookings = onValue(ref(db, 'bookings'), (snap) => setBookings(snap.val() || {}))
+    const unsubRevenue = onValue(ref(db, 'admin_revenue'), (snap) => {
+      const data = snap.val() || {}
+      setRevenueRecords(Object.entries(data).map(([id, item]) => ({ id, ...(item || {}) })))
+    })
     const unsubReports = onValue(ref(db, 'reports'), (snap) => {
       const data = snap.val() || {}
       const list = Object.entries(data)
@@ -55,10 +64,34 @@ export default function Reports() {
       unsubUsers()
       unsubJobs()
       unsubBookings()
+      unsubRevenue()
       unsubReports()
       unsubDisputes()
     }
   }, [])
+
+  const financialSummary = useMemo(() => {
+    const bookingList = Object.entries(bookings || {}).map(([id, booking]) => ({ id, ...(booking || {}) }))
+    const directBookingFees = bookingList.reduce((sum, booking) => {
+      if (getFinancialType(booking) !== 'Direct booking fee') return sum
+      if (!['PAID', 'SETTLED'].includes(getPaymentStatus(booking))) return sum
+      return sum + (getBookingFeeAmount(booking) || Number(booking.amount) || 0)
+    }, 0)
+    const settledRevenue = (revenueRecords || []).filter((entry) => {
+      if (getFinancialType(entry) === 'Direct booking fee') return false
+      const hasPaymentStatus = entry.paymentStatus || entry.payment?.status
+      return !hasPaymentStatus || !['UNPAID', 'PENDING', 'REFUNDED'].includes(getPaymentStatus(entry))
+    })
+    const settledQuoteAmount = settledRevenue.reduce((sum, entry) =>
+      sum + (getQuoteAmount(entry) || Number(entry.totalAmount ?? entry.amount) || 0), 0)
+    const platformCommission = settledRevenue.reduce((sum, entry) => {
+      const amount = getQuoteAmount(entry) || Number(entry.totalAmount ?? entry.amount) || 0
+      return sum + (entry.commission === undefined || entry.commission === null
+        ? amount * 0.1
+        : Number(entry.commission) || 0)
+    }, 0)
+    return { directBookingFees, settledQuoteAmount, platformCommission }
+  }, [bookings, revenueRecords])
 
   const metrics = useMemo(() => {
     if (!users || !jobs || !bookings) return null
@@ -88,28 +121,56 @@ export default function Reports() {
 
   const exportSummary = () => {
     if (!metrics) return
-    const csv = [
-      ['Metric', 'Value'],
+
+    const doc = new jsPDF()
+    doc.setFontSize(16)
+    doc.text('HustleFix Operational Summary', 14, 18)
+
+    const summaryRows = [
+      ['Users', Object.keys(users || {}).length],
+      ['Workers', metrics.workers],
+      ['Verified Workers', metrics.verifiedWorkers],
+      ['Active Jobs', metrics.activeJobs],
+      ['Completed Jobs', metrics.completedJobs],
+      ['Revenue', `R ${Number(metrics.revenue || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+      ['Direct booking fees', formatZAR(financialSummary.directBookingFees)],
+      ['Settled on-site quote amounts', formatZAR(financialSummary.settledQuoteAmount)],
+      ['10% commission on settled quotes', formatZAR(financialSummary.platformCommission)],
+      ['Suspended Users', metrics.suspendedUsers],
+      ['Pending Reports', metrics.pendingReports],
+      ['Total Reports', metrics.totalReports],
+    ]
+
+    autoTable(doc, {
+      head: [['Metric', 'Value']],
+      body: summaryRows,
+      startY: 26,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [13, 90, 88], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 },
+    })
+
+    doc.save('hustlefix-report.pdf')
+  }
+
+  const exportSummaryCsv = () => {
+    if (!metrics) return
+    const summaryRows = [
       ['Users', Object.keys(users || {}).length],
       ['Workers', metrics.workers],
       ['Verified Workers', metrics.verifiedWorkers],
       ['Active Jobs', metrics.activeJobs],
       ['Completed Jobs', metrics.completedJobs],
       ['Revenue', metrics.revenue],
+      ['Direct booking fees', financialSummary.directBookingFees],
+      ['Settled on-site quote amounts', financialSummary.settledQuoteAmount],
+      ['10% commission on settled quotes', financialSummary.platformCommission],
       ['Suspended Users', metrics.suspendedUsers],
       ['Pending Reports', metrics.pendingReports],
       ['Total Reports', metrics.totalReports],
     ]
-      .map((row) => row.map((value) => `"${value}"`).join(','))
-      .join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'hustlefix-report.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv('hustlefix-platform-report.csv', ['Metric', 'Value'], summaryRows)
   }
 
   const getUserDisplay = (uid) => {
@@ -241,7 +302,10 @@ export default function Reports() {
               />
             )}
             <Button variant="outline" size="sm" onClick={exportSummary} disabled={!metrics}>
-              <Download size={14} /> Export summary
+              <Download size={14} /> Export PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportSummaryCsv} disabled={!metrics}>
+              <Download size={14} /> Export CSV
             </Button>
           </div>
       </div>

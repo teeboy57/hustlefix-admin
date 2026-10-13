@@ -17,11 +17,11 @@ const navItems = [
   { to: '/transactions', label: 'Transaction Log', icon: Receipt },
   { to: '/activity', label: 'Activity Log', icon: Activity },
   { to: '/revenue', label: 'Revenue History', icon: BarChart3 },
-  { to: '/payouts', label: 'Payout Requests', icon: Receipt },
   { to: '/command-control', label: 'Command & Control', icon: Wrench },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/support-chat', label: 'Support Chat', icon: MessageSquareText },
   { to: '/verification', label: 'Verification Management', icon: ShieldCheck },
+  { to: '/services', label: 'Services', icon: Wrench },
 ]
 
 export default function Sidebar({ open, onClose }) {
